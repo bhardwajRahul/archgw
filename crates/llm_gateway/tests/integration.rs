@@ -22,19 +22,23 @@ fn request_headers_expectations(module: &mut Tester, http_context: i32) {
             Some(MapType::HttpRequestHeaders),
             Some("x-arch-llm-provider-hint"),
         )
-        .returning(Some("default"))
-        .expect_log(Some(LogLevel::Debug), None)
+        .returning(None)
+        .expect_log(Some(LogLevel::Debug), Some("request received: llm provider hint: Some(\"default\"), selected llm: open-ai-gpt-4"))
         .expect_add_header_map_value(
             Some(MapType::HttpRequestHeaders),
             Some("x-arch-llm-provider"),
-            Some("open-ai-gpt-4"),
+            Some("openai"),
         )
         .expect_replace_header_map_value(
             Some(MapType::HttpRequestHeaders),
             Some("Authorization"),
             Some("Bearer secret_key"),
         )
-        .expect_remove_header_map_value(Some(MapType::HttpRequestHeaders), Some("content-length"))
+        .expect_get_header_map_value(
+            Some(MapType::HttpRequestHeaders),
+            Some("x-arch-llm-provider-hint"),
+        )
+        .returning(Some("default"))
         .expect_get_header_map_value(
             Some(MapType::HttpRequestHeaders),
             Some("x-arch-ratelimit-selector"),
@@ -46,9 +50,6 @@ fn request_headers_expectations(module: &mut Tester, http_context: i32) {
         .returning(None)
         .expect_get_header_map_value(Some(MapType::HttpRequestHeaders), Some(":path"))
         .returning(Some("/v1/chat/completions"))
-        .expect_get_header_map_pairs(Some(MapType::HttpRequestHeaders))
-        .returning(None)
-        .expect_log(Some(LogLevel::Debug), None)
         .expect_get_header_map_value(Some(MapType::HttpRequestHeaders), Some("x-request-id"))
         .returning(None)
         .expect_get_header_map_value(Some(MapType::HttpRequestHeaders), Some("traceparent"))
@@ -60,7 +61,7 @@ fn request_headers_expectations(module: &mut Tester, http_context: i32) {
 fn normal_flow(module: &mut Tester, filter_context: i32, http_context: i32) {
     module
         .call_proxy_on_context_create(http_context, filter_context)
-        .expect_log(Some(LogLevel::Debug), None)
+        .expect_log(Some(LogLevel::Trace), None)
         .execute_and_expect(ReturnType::None)
         .unwrap();
 
@@ -110,12 +111,12 @@ endpoints:
 
 llm_providers:
   - name: open-ai-gpt-4
-    provider: openai
+    provider_interface: openai
     access_key: secret_key
     model: gpt-4
     default: true
   - name: open-ai-gpt-4o
-    provider: openai
+    provider_interface: openai
     access_key: secret_key
     model: gpt-4o
 
@@ -185,7 +186,10 @@ fn llm_gateway_successful_request_to_open_ai_chat_completions() {
 
     module
         .call_proxy_on_context_create(http_context, filter_context)
-        .expect_log(Some(LogLevel::Debug), None)
+        .expect_log(
+            Some(LogLevel::Trace),
+            Some("||| create_http_context called with context_id: 2 |||"),
+        )
         .execute_and_expect(ReturnType::None)
         .unwrap();
 
@@ -216,9 +220,9 @@ fn llm_gateway_successful_request_to_open_ai_chat_completions() {
         .expect_get_buffer_bytes(Some(BufferType::HttpRequestBody))
         .returning(Some(chat_completions_request_body))
         .expect_log(Some(LogLevel::Trace), None)
-        .expect_log(Some(LogLevel::Debug), None)
+        .expect_log(Some(LogLevel::Trace), None)
         .expect_metric_record("input_sequence_length", 21)
-        .expect_log(Some(LogLevel::Debug), None)
+        .expect_log(Some(LogLevel::Trace), None)
         .expect_log(Some(LogLevel::Debug), None)
         .expect_log(Some(LogLevel::Debug), None)
         .expect_set_buffer_bytes(Some(BufferType::HttpRequestBody), None)
@@ -249,7 +253,7 @@ fn llm_gateway_bad_request_to_open_ai_chat_completions() {
 
     module
         .call_proxy_on_context_create(http_context, filter_context)
-        .expect_log(Some(LogLevel::Debug), None)
+        .expect_log(Some(LogLevel::Trace), None)
         .execute_and_expect(ReturnType::None)
         .unwrap();
 
@@ -337,9 +341,9 @@ fn llm_gateway_request_ratelimited() {
         .returning(Some(chat_completions_request_body))
         // The actual call is not important in this test, we just need to grab the token_id
         .expect_log(Some(LogLevel::Trace), None)
-        .expect_log(Some(LogLevel::Debug), None)
+        .expect_log(Some(LogLevel::Trace), None)
         .expect_metric_record("input_sequence_length", 107)
-        .expect_log(Some(LogLevel::Debug), None)
+        .expect_log(Some(LogLevel::Trace), None)
         .expect_log(Some(LogLevel::Debug), None)
         .expect_log(Some(LogLevel::Debug), None)
         .expect_log(Some(LogLevel::Debug), None)
@@ -403,9 +407,9 @@ fn llm_gateway_request_not_ratelimited() {
         .returning(Some(chat_completions_request_body))
         // The actual call is not important in this test, we just need to grab the token_id
         .expect_log(Some(LogLevel::Trace), None)
-        .expect_log(Some(LogLevel::Debug), None)
+        .expect_log(Some(LogLevel::Trace), None)
         .expect_metric_record("input_sequence_length", 29)
-        .expect_log(Some(LogLevel::Debug), None)
+        .expect_log(Some(LogLevel::Trace), None)
         .expect_log(Some(LogLevel::Debug), None)
         .expect_log(Some(LogLevel::Debug), None)
         .expect_set_buffer_bytes(Some(BufferType::HttpRequestBody), None)

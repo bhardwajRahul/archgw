@@ -7,10 +7,12 @@ listener:
   connect_timeout: 0.005s
 
 llm_providers:
-  - name: gpt-4o
-    access_key: $OPENAI_API_KEY
+
+  - name: local-llama
     provider_interface: openai
-    model: gpt-4o
+    model: llama3.2
+    endpoint: host.docker.internal:11434
+    default: true
 
 system_prompt: |
   You are a helpful assistant.
