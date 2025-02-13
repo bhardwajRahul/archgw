@@ -16,16 +16,18 @@ ARCH_CONFIG_SCHEMA_FILE = os.getenv(
 )
 
 
-def add_secret_key_to_llm_providers(config_yaml):
-    llm_providers = []
-    for llm_provider in config_yaml.get("llm_providers", []):
-        access_key_env_var = llm_provider.get("access_key", False)
-        access_key_value = os.getenv(access_key_env_var, False)
-        if access_key_env_var and access_key_value:
-            llm_provider["access_key"] = access_key_value
-        llm_providers.append(llm_provider)
-    config_yaml["llm_providers"] = llm_providers
-    return config_yaml
+def get_endpoint_and_port(endpoint, protocol):
+    endpoint_tokens = endpoint.split(":")
+    if len(endpoint_tokens) > 1:
+        endpoint = endpoint_tokens[0]
+        port = int(endpoint_tokens[1])
+        return endpoint, port
+    else:
+        if protocol == "http":
+            port = 80
+        else:
+            port = 443
+        return endpoint, port
 
 
 def validate_and_render_schema():
@@ -54,9 +56,11 @@ def validate_and_render_schema():
     for name, endpoint_details in endpoints.items():
         inferred_clusters[name] = endpoint_details
         endpoint = inferred_clusters[name]["endpoint"]
-        if len(endpoint.split(":")) > 1:
-            inferred_clusters[name]["endpoint"] = endpoint.split(":")[0]
-            inferred_clusters[name]["port"] = int(endpoint.split(":")[1])
+        protocol = inferred_clusters[name].get("protocol", "http")
+        (
+            inferred_clusters[name]["endpoint"],
+            inferred_clusters[name]["port"],
+        ) = get_endpoint_and_port(endpoint, protocol)
 
     print("defined clusters from arch_config.yaml: ", json.dumps(inferred_clusters))
 
@@ -70,18 +74,43 @@ def validate_and_render_schema():
                     f"Unknown endpoint {name}, please add it in endpoints section in your arch_config.yaml file"
                 )
 
-    arch_llm_providers = config_yaml["llm_providers"]
     arch_tracing = config_yaml.get("tracing", {})
+
+    llms_with_endpoint = []
+
+    updated_llm_providers = []
+    for llm_provider in config_yaml["llm_providers"]:
+        provider = None
+        if llm_provider.get("provider") and llm_provider.get("provider_interface"):
+            raise Exception(
+                "Please provide either provider or provider_interface, not both"
+            )
+        if llm_provider.get("provider"):
+            provider = llm_provider["provider"]
+            llm_provider["provider_interface"] = provider
+            del llm_provider["provider"]
+        updated_llm_providers.append(llm_provider)
+
+        if llm_provider.get("endpoint", None):
+            endpoint = llm_provider["endpoint"]
+            protocol = llm_provider.get("protocol", "http")
+            llm_provider["endpoint"], llm_provider["port"] = get_endpoint_and_port(
+                endpoint, protocol
+            )
+            llms_with_endpoint.append(llm_provider)
+
+    config_yaml["llm_providers"] = updated_llm_providers
+
     arch_config_string = yaml.dump(config_yaml)
-    config_yaml["mode"] = "llm"
     arch_llm_config_string = yaml.dump(config_yaml)
 
     data = {
         "arch_config": arch_config_string,
         "arch_llm_config": arch_llm_config_string,
         "arch_clusters": inferred_clusters,
-        "arch_llm_providers": arch_llm_providers,
+        "arch_llm_providers": config_yaml["llm_providers"],
         "arch_tracing": arch_tracing,
+        "local_llms": llms_with_endpoint,
     }
 
     rendered = template.render(data)

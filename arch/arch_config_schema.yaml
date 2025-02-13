@@ -33,6 +33,8 @@ properties:
             enum:
               - http
               - https
+          http_host:
+            type: string
         additionalProperties: false
         required:
           - endpoint
@@ -43,25 +45,42 @@ properties:
       properties:
         name:
           type: string
+        # this field is deprecated, use provider_interface instead
         provider:
           type: string
+          enum:
+            - openai
+        provider_interface:
+          type: string
+          enum:
+            - openai
+            - mistral
         access_key:
           type: string
         model:
           type: string
         default:
           type: boolean
+        endpoint:
+          type: string
+        protocol:
+          type: string
+          enum:
+            - http
+            - https
+        http_host:
+          type: string
       additionalProperties: false
       required:
         - name
-        - provider
-        - access_key
         - model
   overrides:
     type: object
     properties:
       prompt_target_intent_matching_threshold:
         type: number
+      optimize_context_window:
+        type: boolean
   system_prompt:
     type: string
   prompt_targets:
@@ -118,6 +137,10 @@ properties:
               enum:
                 - GET
                 - POST
+            http_headers:
+              type: object
+              additionalProperties:
+                type: string
           additionalProperties: false
           required:
             - name
