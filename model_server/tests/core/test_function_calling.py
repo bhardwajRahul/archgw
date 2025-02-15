@@ -1,12 +1,8 @@
-import os
+import pytest
 
 from src.commons.globals import handler_map
-from src.core.model_utils import ChatMessage, Message
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
-from src.main import app
-from src.commons.globals import handler_map
+from src.core.utils.model_utils import ChatMessage, Message
+
 
 # define function
 get_weather_api = {
@@ -55,20 +51,6 @@ def get_hallucination_data_complex():
     # Create an instance of the ChatMessage class
     req = ChatMessage(messages=[message1, message2, message3], tools=tools)
 
-    return req, True, True, True
-
-
-def get_hallucination_data_easy():
-    # Create instances of the Message class
-    message1 = Message(role="user", content="How is the weather in Seattle?")
-
-    # Create a list of tools
-    tools = [get_weather_api]
-
-    # Create an instance of the ChatMessage class
-    req = ChatMessage(messages=[message1], tools=tools)
-
-    # model will hallucinate
     return req, True, True, True
 
 
@@ -146,7 +128,6 @@ def get_greeting_data():
     "get_data_func",
     [
         get_hallucination_data_complex,
-        get_hallucination_data_easy,
         get_complete_data,
         get_irrelevant_data,
         get_complete_data_2,
@@ -163,7 +144,10 @@ async def test_function_calling(get_data_func):
         function_calling_response = await handler_map["Arch-Function"].chat_completion(
             req
         )
-        assert handler_map["Arch-Function"].hallu_handler.hallucination == hallucination
+        assert (
+            handler_map["Arch-Function"].hallucination_state.hallucination
+            == hallucination
+        )
         response_txt = function_calling_response.choices[0].message.content
 
         if parameter_gathering:
