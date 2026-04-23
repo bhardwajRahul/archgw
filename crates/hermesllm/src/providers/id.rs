@@ -46,6 +46,8 @@ pub enum ProviderId {
     AmazonBedrock,
     ChatGPT,
     DigitalOcean,
+    Vercel,
+    OpenRouter,
 }
 
 impl TryFrom<&str> for ProviderId {
@@ -77,6 +79,8 @@ impl TryFrom<&str> for ProviderId {
             "digitalocean" => Ok(ProviderId::DigitalOcean),
             "do" => Ok(ProviderId::DigitalOcean),    // alias
             "do_ai" => Ok(ProviderId::DigitalOcean), // alias
+            "vercel" => Ok(ProviderId::Vercel),
+            "openrouter" => Ok(ProviderId::OpenRouter),
             _ => Err(format!("Unknown provider: {}", value)),
         }
     }
@@ -140,6 +144,17 @@ impl ProviderId {
                 SupportedUpstreamAPIs::OpenAIChatCompletions(OpenAIApi::ChatCompletions)
             }
 
+            // Vercel AI Gateway natively supports all three API types
+            (ProviderId::Vercel, SupportedAPIsFromClient::AnthropicMessagesAPI(_)) => {
+                SupportedUpstreamAPIs::AnthropicMessagesAPI(AnthropicApi::Messages)
+            }
+            (ProviderId::Vercel, SupportedAPIsFromClient::OpenAIChatCompletions(_)) => {
+                SupportedUpstreamAPIs::OpenAIChatCompletions(OpenAIApi::ChatCompletions)
+            }
+            (ProviderId::Vercel, SupportedAPIsFromClient::OpenAIResponsesAPI(_)) => {
+                SupportedUpstreamAPIs::OpenAIResponsesAPI(OpenAIApi::Responses)
+            }
+
             // OpenAI-compatible providers only support OpenAI chat completions
             (
                 ProviderId::OpenAI
@@ -157,8 +172,9 @@ impl ProviderId {
                 | ProviderId::Moonshotai
                 | ProviderId::Zhipu
                 | ProviderId::Qwen
-                | ProviderId::ChatGPT
-                | ProviderId::DigitalOcean,
+                | ProviderId::DigitalOcean
+                | ProviderId::OpenRouter
+                | ProviderId::ChatGPT,
                 SupportedAPIsFromClient::AnthropicMessagesAPI(_),
             ) => SupportedUpstreamAPIs::OpenAIChatCompletions(OpenAIApi::ChatCompletions),
 
@@ -178,8 +194,9 @@ impl ProviderId {
                 | ProviderId::Moonshotai
                 | ProviderId::Zhipu
                 | ProviderId::Qwen
-                | ProviderId::ChatGPT
-                | ProviderId::DigitalOcean,
+                | ProviderId::DigitalOcean
+                | ProviderId::OpenRouter
+                | ProviderId::ChatGPT,
                 SupportedAPIsFromClient::OpenAIChatCompletions(_),
             ) => SupportedUpstreamAPIs::OpenAIChatCompletions(OpenAIApi::ChatCompletions),
 
@@ -248,6 +265,8 @@ impl Display for ProviderId {
             ProviderId::AmazonBedrock => write!(f, "amazon_bedrock"),
             ProviderId::ChatGPT => write!(f, "chatgpt"),
             ProviderId::DigitalOcean => write!(f, "digitalocean"),
+            ProviderId::Vercel => write!(f, "vercel"),
+            ProviderId::OpenRouter => write!(f, "openrouter"),
         }
     }
 }
@@ -351,11 +370,96 @@ mod tests {
     }
 
     #[test]
+    fn test_vercel_and_openrouter_parsing() {
+        assert_eq!(ProviderId::try_from("vercel"), Ok(ProviderId::Vercel));
+        assert!(ProviderId::try_from("vercel_ai").is_err());
+        assert_eq!(
+            ProviderId::try_from("openrouter"),
+            Ok(ProviderId::OpenRouter)
+        );
+        assert!(ProviderId::try_from("open_router").is_err());
+    }
+
+    #[test]
+    fn test_vercel_compatible_api() {
+        use crate::clients::endpoints::{SupportedAPIsFromClient, SupportedUpstreamAPIs};
+
+        let openai_client =
+            SupportedAPIsFromClient::OpenAIChatCompletions(OpenAIApi::ChatCompletions);
+        let upstream = ProviderId::Vercel.compatible_api_for_client(&openai_client, false);
+        assert!(
+            matches!(upstream, SupportedUpstreamAPIs::OpenAIChatCompletions(_)),
+            "Vercel should map OpenAI client to OpenAIChatCompletions upstream"
+        );
+
+        let anthropic_client =
+            SupportedAPIsFromClient::AnthropicMessagesAPI(AnthropicApi::Messages);
+        let upstream = ProviderId::Vercel.compatible_api_for_client(&anthropic_client, false);
+        assert!(
+            matches!(upstream, SupportedUpstreamAPIs::AnthropicMessagesAPI(_)),
+            "Vercel should map Anthropic client to AnthropicMessagesAPI upstream natively"
+        );
+
+        let responses_client = SupportedAPIsFromClient::OpenAIResponsesAPI(OpenAIApi::Responses);
+        let upstream = ProviderId::Vercel.compatible_api_for_client(&responses_client, false);
+        assert!(
+            matches!(upstream, SupportedUpstreamAPIs::OpenAIResponsesAPI(_)),
+            "Vercel should map Responses API client to OpenAIResponsesAPI upstream natively"
+        );
+    }
+
+    #[test]
+    fn test_openrouter_compatible_api() {
+        use crate::clients::endpoints::{SupportedAPIsFromClient, SupportedUpstreamAPIs};
+
+        let openai_client =
+            SupportedAPIsFromClient::OpenAIChatCompletions(OpenAIApi::ChatCompletions);
+        let upstream = ProviderId::OpenRouter.compatible_api_for_client(&openai_client, false);
+        assert!(
+            matches!(upstream, SupportedUpstreamAPIs::OpenAIChatCompletions(_)),
+            "OpenRouter should map OpenAI client to OpenAIChatCompletions upstream"
+        );
+
+        let anthropic_client =
+            SupportedAPIsFromClient::AnthropicMessagesAPI(AnthropicApi::Messages);
+        let upstream = ProviderId::OpenRouter.compatible_api_for_client(&anthropic_client, false);
+        assert!(
+            matches!(upstream, SupportedUpstreamAPIs::OpenAIChatCompletions(_)),
+            "OpenRouter should translate Anthropic client to OpenAIChatCompletions upstream"
+        );
+
+        let responses_client = SupportedAPIsFromClient::OpenAIResponsesAPI(OpenAIApi::Responses);
+        let upstream = ProviderId::OpenRouter.compatible_api_for_client(&responses_client, false);
+        assert!(
+            matches!(upstream, SupportedUpstreamAPIs::OpenAIChatCompletions(_)),
+            "OpenRouter should translate Responses API client to OpenAIChatCompletions upstream"
+        );
+    }
+
+    #[test]
+    fn test_vercel_and_openrouter_empty_models() {
+        assert!(ProviderId::Vercel.models().is_empty());
+        assert!(ProviderId::OpenRouter.models().is_empty());
+    }
+
+    #[test]
     fn test_xai_uses_responses_api_for_responses_clients() {
         use crate::clients::endpoints::{SupportedAPIsFromClient, SupportedUpstreamAPIs};
 
         let client_api = SupportedAPIsFromClient::OpenAIResponsesAPI(OpenAIApi::Responses);
         let upstream = ProviderId::XAI.compatible_api_for_client(&client_api, false);
+        assert!(matches!(
+            upstream,
+            SupportedUpstreamAPIs::OpenAIResponsesAPI(OpenAIApi::Responses)
+        ));
+    }
+
+    #[test]
+    fn test_chatgpt_uses_responses_api_for_responses_clients() {
+        use crate::clients::endpoints::{SupportedAPIsFromClient, SupportedUpstreamAPIs};
+
+        let client_api = SupportedAPIsFromClient::OpenAIResponsesAPI(OpenAIApi::Responses);
+        let upstream = ProviderId::ChatGPT.compatible_api_for_client(&client_api, false);
         assert!(matches!(
             upstream,
             SupportedUpstreamAPIs::OpenAIResponsesAPI(OpenAIApi::Responses)

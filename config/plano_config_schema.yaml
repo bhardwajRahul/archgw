@@ -192,6 +192,8 @@ properties:
             - gemini
             - chatgpt
             - digitalocean
+            - vercel
+            - openrouter
         headers:
           type: object
           additionalProperties:
@@ -247,6 +249,8 @@ properties:
             - gemini
             - chatgpt
             - digitalocean
+            - vercel
+            - openrouter
         headers:
           type: object
           additionalProperties:
