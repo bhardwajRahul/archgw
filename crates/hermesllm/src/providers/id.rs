@@ -44,6 +44,7 @@ pub enum ProviderId {
     Zhipu,
     Qwen,
     AmazonBedrock,
+    ChatGPT,
     DigitalOcean,
 }
 
@@ -72,6 +73,7 @@ impl TryFrom<&str> for ProviderId {
             "qwen" => Ok(ProviderId::Qwen),
             "amazon_bedrock" => Ok(ProviderId::AmazonBedrock),
             "amazon" => Ok(ProviderId::AmazonBedrock), // alias
+            "chatgpt" => Ok(ProviderId::ChatGPT),
             "digitalocean" => Ok(ProviderId::DigitalOcean),
             "do" => Ok(ProviderId::DigitalOcean),    // alias
             "do_ai" => Ok(ProviderId::DigitalOcean), // alias
@@ -99,6 +101,7 @@ impl ProviderId {
             ProviderId::Moonshotai => "moonshotai",
             ProviderId::Zhipu => "z-ai",
             ProviderId::Qwen => "qwen",
+            ProviderId::ChatGPT => "chatgpt",
             ProviderId::DigitalOcean => "digitalocean",
             _ => return Vec::new(),
         };
@@ -154,6 +157,7 @@ impl ProviderId {
                 | ProviderId::Moonshotai
                 | ProviderId::Zhipu
                 | ProviderId::Qwen
+                | ProviderId::ChatGPT
                 | ProviderId::DigitalOcean,
                 SupportedAPIsFromClient::AnthropicMessagesAPI(_),
             ) => SupportedUpstreamAPIs::OpenAIChatCompletions(OpenAIApi::ChatCompletions),
@@ -174,13 +178,14 @@ impl ProviderId {
                 | ProviderId::Moonshotai
                 | ProviderId::Zhipu
                 | ProviderId::Qwen
+                | ProviderId::ChatGPT
                 | ProviderId::DigitalOcean,
                 SupportedAPIsFromClient::OpenAIChatCompletions(_),
             ) => SupportedUpstreamAPIs::OpenAIChatCompletions(OpenAIApi::ChatCompletions),
 
-            // OpenAI Responses API - OpenAI and xAI support this natively
+            // OpenAI Responses API - OpenAI, xAI, and ChatGPT support this natively
             (
-                ProviderId::OpenAI | ProviderId::XAI,
+                ProviderId::OpenAI | ProviderId::XAI | ProviderId::ChatGPT,
                 SupportedAPIsFromClient::OpenAIResponsesAPI(_),
             ) => SupportedUpstreamAPIs::OpenAIResponsesAPI(OpenAIApi::Responses),
 
@@ -241,6 +246,7 @@ impl Display for ProviderId {
             ProviderId::Zhipu => write!(f, "zhipu"),
             ProviderId::Qwen => write!(f, "qwen"),
             ProviderId::AmazonBedrock => write!(f, "amazon_bedrock"),
+            ProviderId::ChatGPT => write!(f, "chatgpt"),
             ProviderId::DigitalOcean => write!(f, "digitalocean"),
         }
     }

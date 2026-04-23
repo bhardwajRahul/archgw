@@ -190,7 +190,13 @@ properties:
             - openai
             - xiaomi
             - gemini
+            - chatgpt
             - digitalocean
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: "Additional headers to send with upstream requests (e.g., ChatGPT-Account-Id, originator)."
         routing_preferences:
           type: array
           items:
@@ -239,7 +245,13 @@ properties:
             - openai
             - xiaomi
             - gemini
+            - chatgpt
             - digitalocean
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: "Additional headers to send with upstream requests (e.g., ChatGPT-Account-Id, originator)."
         routing_preferences:
           type: array
           items:

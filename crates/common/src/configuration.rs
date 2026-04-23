@@ -392,6 +392,8 @@ pub enum LlmProviderType {
     AmazonBedrock,
     #[serde(rename = "plano")]
     Plano,
+    #[serde(rename = "chatgpt")]
+    ChatGPT,
     #[serde(rename = "digitalocean")]
     DigitalOcean,
 }
@@ -415,6 +417,7 @@ impl Display for LlmProviderType {
             LlmProviderType::Qwen => write!(f, "qwen"),
             LlmProviderType::AmazonBedrock => write!(f, "amazon_bedrock"),
             LlmProviderType::Plano => write!(f, "plano"),
+            LlmProviderType::ChatGPT => write!(f, "chatgpt"),
             LlmProviderType::DigitalOcean => write!(f, "digitalocean"),
         }
     }
@@ -482,6 +485,7 @@ pub struct LlmProvider {
     pub base_url_path_prefix: Option<String>,
     pub internal: Option<bool>,
     pub passthrough_auth: Option<bool>,
+    pub headers: Option<HashMap<String, String>>,
 }
 
 pub trait IntoModels {
@@ -525,6 +529,7 @@ impl Default for LlmProvider {
             base_url_path_prefix: None,
             internal: None,
             passthrough_auth: None,
+            headers: None,
         }
     }
 }
