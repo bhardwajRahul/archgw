@@ -1,5 +1,10 @@
+#[cfg(feature = "jemalloc")]
+#[global_allocator]
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 use brightstaff::app_state::AppState;
 use brightstaff::handlers::agents::orchestrator::agent_chat;
+use brightstaff::handlers::debug;
 use brightstaff::handlers::empty;
 use brightstaff::handlers::function_calling::function_calling_chat_handler;
 use brightstaff::handlers::llm::llm_chat;
@@ -513,6 +518,7 @@ async fn dispatch(
             Ok(list_models(Arc::clone(&state.llm_providers)).await)
         }
         (&Method::OPTIONS, "/v1/models" | "/agents/v1/models") => cors_preflight(),
+        (&Method::GET, "/debug/memstats") => debug::memstats().await,
         _ => {
             debug!(method = %req.method(), path = %path, "no route found");
             let mut not_found = Response::new(empty());
